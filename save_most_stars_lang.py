@@ -54,33 +54,17 @@ def write_text(file_name, method, text):
         f.write(text)
 
 
-def get_all_repos(languages, page='0'):
+def get_all_repos(lang, page):
     # get all repos of most stars and forks, and different languages
     access_token = get_access_token()
-
-    repo_stars_api = 'https://api.github.com/search/repositories?q=stars:>10000&sort=stars&per_page=100&page={}&access_token={}'.format(
-        page,
-        access_token)
-    repo_forks_api = 'https://api.github.com/search/repositories?q=forks:>10000&sort=forks&per_page=100&page={}&access_token={}'.format(
-        page,
-        access_token)
-
-    print("Get repos of most stars...")
-    repos_stars = get_api_repos(repo_stars_api)
-    print("Done!\n")
-
-    print("Get repos of most forks...")
-    repos_forks = get_api_repos(repo_forks_api)
-    print("Done!\n")
-
     repos_languages = {}
-    for lang in languages:
-        print("Get repos of most stars of {}...".format(lang))
-        repo_language_api = 'https://api.github.com/search/repositories?q=language:{}&stars:>10000&sort=stars&per_page=100&access_token={}'.format(
-            lang, access_token)
-        repos_languages[lang] = get_api_repos(repo_language_api)
-        print("Done!\n")
-    return repos_stars, repos_forks, repos_languages
+
+    print("Get repos of most stars of {}...".format(lang))
+    repo_language_api = 'https://api.github.com/search/repositories?q=language:{}&stars:>100&sort=stars&per_page=100&page={}&access_token={}'.format(
+        lang, page, access_token)
+    repos_languages[lang] = get_api_repos(repo_language_api)
+    print("Done!\n")
+    return repos_languages
 
 
 def write_head_contents():
@@ -121,40 +105,12 @@ def write_head_contents():
     write_text('README.md', 'w', head + contents)
 
 
-def write_readme_lang_md(repos_stars, repos_forks, repos_languages, languages, languages_md, page='0'):
-    # Most stars save
-    write_text('README.md', 'a',
-               '## Most Stars\n\nThis is top 10 list, for more click **[Github Top 100 Stars](Top100/Top-100-stars.md)**\n\n')
-    save_ranking('README.md', 'a', repos_stars[0:10])
-    print("Save most stars in README.md!")
-    os.makedirs('Top100', exist_ok=True)
-    write_text('Top100/Top-100-stars.md', 'w',
-               '[Github Ranking](../README.md)\n==========\n\n## Github Top 100 Stars\n\n')
-    save_ranking('Top100/Top-100-stars.md', 'a', repos_stars)
-    print("Save most stars in Top100/Top-100-stars.md!\n")
-
-    # Most forks save
-    write_text("README.md", 'a',
-               "## Most Forks\n\nThis is top 10 list, for more click **[Github Top 100 Forks](Top100/Top-100-forks.md)**\n\n")
-    save_ranking('README.md', 'a', repos_forks[0:10])
-    print("Save most forks in README.md!")
-    write_text('Top100/Top-100-forks.md', 'w',
-               '[Github Ranking](../README.md)\n==========\n\n## Github Top 100 Forks\n\n')
-    save_ranking('Top100/Top-100-forks.md', 'a', repos_forks)
-    print("Save most forks in Top100/Top-100-forks.md!\n")
+def write_readme_lang_md(repos_languages, lang, page):
 
     # Most stars in language save
-    for i in range(len(languages)):
-        lang = languages[i]
-        write_text('README.md', 'a',
-                   "## {}\n\nThis is top 10 list, for more click **[Top 100 Stars in {}](Top100/{}.md)**\n\n".format(
-                       languages_md[i], languages_md[i], lang))
-        save_ranking('README.md', 'a', repos_languages[lang][0:10])
-        print("Save most stars of {} in README.md!".format(lang))
-        write_text('Top100/' + lang + '.md', 'w',
-                   "[Github Ranking](../README.md)\n==========\n\n## Top 100 Stars in {}\n\n".format(languages_md[i]))
-        save_ranking('Top100/' + lang + '_' + page + '.md', 'a', repos_languages[lang])
-        print("Save most stars of {} in Top100/{}.md!\n".format(lang, lang))
+    save_ranking('README.md', 'a', repos_languages[lang][0:10])
+    save_ranking('Top100/' + lang + '_' + page + '.md', 'a', repos_languages[lang])
+    print("Save most stars of {} in Top100/{}.md!\n".format(lang, lang))
 
 
 def repo_to_df(repos, item, col):
@@ -170,15 +126,12 @@ def repo_to_df(repos, item, col):
     return pd.DataFrame(repos_list, columns=col)
 
 
-def save_to_csv(repos_stars, repos_forks, repos_languages):
+def save_to_csv(repos_languages):
     # save top100 repos info to csv file in Data/github-ranking-year-month-day.md
     col = ['rank', 'item', 'repo_name', 'stars', 'forks', 'language', 'repo_url', 'username', 'issues', 'last_commit',
            'description']
     df_all = pd.DataFrame(columns=col)
-    df_repos_stars = repo_to_df(repos_stars, 'top-100-stars', col)
-    df_repos_forks = repo_to_df(repos_forks, 'top-100-forks', col)
-    df_all = df_all.append(df_repos_stars, ignore_index=True)
-    df_all = df_all.append(df_repos_forks, ignore_index=True)
+
     for lang in repos_languages.keys():
         df_repos_lang = repo_to_df(repos_languages[lang], lang, col)
         df_all = df_all.append(df_repos_lang, ignore_index=True)
@@ -190,29 +143,21 @@ def save_to_csv(repos_stars, repos_forks, repos_languages):
 
 
 if __name__ == "__main__":
-    # os.chdir('/home/li/code/github/Github-Ranking')
 
-    # languages = ["ActionScript", "C", "CSharp", "CPP", "Clojure", "CoffeeScript", "CSS", "Go", "Haskell", "HTML",
-    #              "Java", "JavaScript", "Lua", "MATLAB", "Objective-C", "Perl", "PHP", "Python", "R", "Ruby", "Scala",
-    #              "Shell", "Swift", "TeX", "Vim-script"]
-    # languages_md = ["ActionScript", "C", "C\#", "C\+\+", "Clojure", "CoffeeScript", "CSS", "Go", "Haskell", "HTML",
-    #                 "Java", "JavaScript", "Lua", "MATLAB", "Objective\-C", "Perl", "PHP", "Python", "R", "Ruby",
-    #                 "Scala", "Shell", "Swift", "TeX", "Vim script"]
-
-    languages = ['Java']
-    languages_md = ['Java']
-
+    languages = 'Java'
+    languages_md = 'Java'
+    pages = list(range(11,100))
     print("Get repos, please wait for seconds...")
-    repos_stars, repos_forks, repos_languages = get_all_repos(languages)
-    print("Get all repos!\n")
+    for page in pages:
+        page = str(page)
+        repos_languages = get_all_repos(languages, page)
+        print("Get all repos!\n")
 
-    write_head_contents()
-    print("Write head and contents of README.md!")
 
-    # write to readme and languages.md
-    write_readme_lang_md(repos_stars, repos_forks, repos_languages, languages, languages_md, page='0')
+        # write to readme and languages.md
+        write_readme_lang_md(repos_languages, languages, page)
 
     # Save data to csv file
-    save_to_csv(repos_stars, repos_forks, repos_languages)
+    # save_to_csv(repos_languages)
 
     print("Total time: {}s".format((datetime.now() - t1).total_seconds()))
